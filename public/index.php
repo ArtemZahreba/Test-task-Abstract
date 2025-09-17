@@ -1,46 +1,31 @@
 <?php
 $config = require __DIR__ . '/../config.php';
-$token = $config['api_token'];
-$apiUrl = 'http://localhost:8080/api/info'; // URL до API
+$dataFile = $config['data_file'];
 
-// Функція для отримання даних
-function getData($url, $token) {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $token"
-    ]);
-    $response = curl_exec($ch);
-    curl_close($ch);
-    return json_decode($response, true) ?? [];
+// Якщо файлу немає — створюємо порожній масив
+if (!file_exists($dataFile)) {
+    file_put_contents($dataFile, json_encode([]));
 }
 
-// Якщо надіслана форма
+// Якщо надіслана форма — додаємо користувача
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $postData = json_encode([
-        'name' => $_POST['name'] ?? '',
-        'email' => $_POST['email'] ?? ''
-    ]);
+    $data = json_decode(file_get_contents($dataFile), true) ?? [];
 
-    $ch = curl_init($apiUrl);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $token",
-        "Content-Type: application/json"
-    ]);
-    curl_exec($ch);
-    curl_close($ch);
+    $new = [
+        'id' => count($data) + 1,
+        'name' => htmlspecialchars($_POST['name'] ?? ''),
+        'email' => htmlspecialchars($_POST['email'] ?? '')
+    ];
 
-    // Після додавання перезавантажуємо сторінку
+    $data[] = $new;
+    file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+
     header("Location: " . $_SERVER['PHP_SELF']);
     exit;
 }
 
 // Отримуємо дані для таблиці
-$data = getData($apiUrl, $token);
+$data = json_decode(file_get_contents($dataFile), true) ?? [];
 ?>
 
 <!DOCTYPE html>
@@ -60,7 +45,6 @@ $data = getData($apiUrl, $token);
     </form>
 
     <h3 style="text-align:center;">Список користувачів</h3>
-
     <table border="1" cellpadding="8" cellspacing="0" style="margin: 0 auto;">
         <tr><th>ID</th><th>Ім’я</th><th>Email</th></tr>
         <?php foreach ($data as $user): ?>
